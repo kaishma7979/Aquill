@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aquill - Supabase test</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+  body{font-family:Arial,sans-serif;max-width:560px;margin:30px auto;padding:0 14px}
+  input,button{display:block;width:100%;padding:12px;margin:8px 0;font-size:16px}
+  #log{background:#f4f4f4;padding:12px;white-space:pre-wrap;min-height:90px}
+</style>
+</head>
+<body>
+<h2>Aquill - Supabase test</h2>
+<p>Log in with your Supabase user. The password is typed here and is never saved in any file.</p>
+
+<input id="email" type="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">1. Log in</button>
+<button onclick="addSample()">2. Add ONE test client</button>
+<button onclick="showCount()">3. Count clients</button>
+<button onclick="removeSample()">4. Remove the test client</button>
+<button onclick="logout()">Log out</button>
+<div id="log">Not logged in.</div>
+
+<script>
+// Public values only. Safe because Row Level Security is ON.
+const SUPABASE_URL = "https://iqgaoimpbemizbllplpl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_UO94Lb21VpQLFHDRCBc_LA_g_-Zm2tP";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const say = t => document.getElementById("log").textContent = t;
+
+async function login(){
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("password").value
+  });
+  if (error) return say("Login failed: " + error.message);
+  const r = await sb.rpc("my_role");
+  say("Logged in as " + data.user.email + "\nYour role: " + r.data);
+}
+
+async function addSample(){
+  const { data: u } = await sb.auth.getUser();
+  if (!u.user) return say("Please log in first.");
+  const { error } = await sb.from("clients").insert({
+    client_name: "TEST SAMPLE - delete me",
+    entity_type: "Private Limited",
+    status: "Active",
+    legacy_name: "TEST-SAMPLE",
+    created_by: u.user.id
+  });
+  say(error ? "Add failed: " + error.message : "Test client added.");
+}
+
+async function showCount(){
+  const { count, error } = await sb.from("clients")
+    .select("*", { count: "exact", head: true });
+  say(error ? "Count failed: " + error.message : "Clients in database: " + count);
+}
+
+async function removeSample(){
+  const { error } = await sb.from("clients").delete().eq("legacy_name", "TEST-SAMPLE");
+  say(error ? "Remove failed: " + error.message : "Test client removed (only rows marked TEST-SAMPLE).");
+}
+
+async function logout(){ await sb.auth.signOut(); say("Logged out."); }
+</script>
+</body>
+</html>
